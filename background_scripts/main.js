@@ -68,6 +68,16 @@ if (bgUtils.isFirefox()) {
   visibleTabsQueryArgs.hidden = false;
 }
 
+// Returns query args for tabs in a specific window (defensive against browser focus bugs)
+function getTabQueryArgsForWindow(windowId) {
+  const queryArgs = { windowId: windowId };
+  if (bgUtils.isFirefox()) {
+    // Only Firefox supports hidden tabs.
+    queryArgs.hidden = false;
+  }
+  return queryArgs;
+}
+
 function onURLChange(details) {
   // sendMessage will throw "Error: Could not establish connection. Receiving end does not exist."
   // if there is no Vimium content script loaded in the given tab. This can occur if the user
@@ -183,7 +193,7 @@ function moveTab({ count, tab, registryEntry }) {
   if (registryEntry.command === "moveTabLeft") {
     count = -count;
   }
-  return chrome.tabs.query(visibleTabsQueryArgs, function (tabs) {
+  return chrome.tabs.query(getTabQueryArgsForWindow(tab.windowId), function (tabs) {
     const pinnedCount = (tabs.filter((tab) => tab.pinned)).length;
     const minIndex = tab.pinned ? 0 : pinnedCount;
     const maxIndex = (tab.pinned ? pinnedCount : tabs.length) - 1;
@@ -301,7 +311,7 @@ const BackgroundCommands = {
 
   moveTabToNewWindow({ count, tab }) {
     // TODO(philc): Switch to the promise API of chrome.tabs.query.
-    chrome.tabs.query(visibleTabsQueryArgs, function (tabs) {
+    chrome.tabs.query(getTabQueryArgsForWindow(tab.windowId), function (tabs) {
       const activeTabIndex = getTabIndex(tab, tabs);
       const startTabIndex = Math.max(0, Math.min(activeTabIndex, tabs.length - count));
       [tab, ...tabs] = tabs.slice(startTabIndex, startTabIndex + count);
@@ -428,7 +438,7 @@ const BackgroundCommands = {
 };
 
 async function forCountTabs(count, currentTab, callback) {
-  const tabs = await chrome.tabs.query(visibleTabsQueryArgs);
+  const tabs = await chrome.tabs.query(getTabQueryArgsForWindow(currentTab.windowId));
   const activeTabIndex = getTabIndex(currentTab, tabs);
   const startTabIndex = Math.max(0, Math.min(activeTabIndex, tabs.length - count));
   for (const tab of tabs.slice(startTabIndex, startTabIndex + count)) {
@@ -443,7 +453,7 @@ async function removeTabsRelative(direction, { count, tab }) {
   // either side.
   if (count == null) count = 99999;
   const activeTab = tab;
-  const tabs = await chrome.tabs.query(visibleTabsQueryArgs);
+  const tabs = await chrome.tabs.query(getTabQueryArgsForWindow(activeTab.windowId));
   const activeIndex = getTabIndex(activeTab, tabs);
   const toRemove = tabs.filter((tab, tabIndex) => {
     if (tab.pinned || tab.id == activeTab.id) {
@@ -467,7 +477,7 @@ async function removeTabsRelative(direction, { count, tab }) {
 // Selects a tab before or after the currently selected tab.
 // - direction: "next", "previous", "first" or "last".
 function selectTab(direction, { count, tab }) {
-  chrome.tabs.query(visibleTabsQueryArgs, function (tabs) {
+  chrome.tabs.query(getTabQueryArgsForWindow(tab.windowId), function (tabs) {
     if (tabs.length > 1) {
       const toSelect = (() => {
         switch (direction) {
