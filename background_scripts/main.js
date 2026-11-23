@@ -182,11 +182,13 @@ function getTabIndex(tab, tabs) {
 //
 async function selectSpecificTab(request) {
   const tab = await chrome.tabs.get(request.id);
-  // Focus the tab's window. TODO(philc): Why are we null-checking chrome.windows here?
+  await chrome.tabs.update(request.id, { active: true });
+  // Focus the tab's window. This happens after activating the tab so that TabRecency's window focus
+  // listener sees the selected tab as the window's active tab. TODO(philc): Why are we
+  // null-checking chrome.windows here?
   if (chrome.windows != null) {
     await chrome.windows.update(tab.windowId, { focused: true });
   }
-  await chrome.tabs.update(request.id, { active: true });
 }
 
 function moveTab({ count, tab, registryEntry }) {
@@ -936,6 +938,7 @@ Object.assign(globalThis, {
   BackgroundCommands,
   majorVersionHasIncreased,
   nextZoomLevel,
+  selectSpecificTab,
 });
 
 // The chrome.runtime.onStartup and onInstalled events are not fired when disabling and then
